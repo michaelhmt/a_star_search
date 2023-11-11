@@ -1,0 +1,3 @@
+[submodule "c++_astar/extern/pybind11"]
+	path = c++_astar/extern/pybind11
+	url = https://github.com/pybind/pybind11.git

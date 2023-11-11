@@ -1,4 +1,9 @@
 "C:\Program Files\JetBrains\CLion 2022.1\bin\cmake\win\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_MAKE_PROGRAM=C:/Program Files/JetBrains/CLion 2022.1/bin/ninja/win/ninja.exe" -G Ninja -S E:\Python\a_star_search\c++_astar -B E:\Python\a_star_search\c++_astar\cmake-build-debug
+-- pybind11 v2.12.0 dev1
+-- Found PythonInterp: C:/Users/Michael/anaconda3/envs/a_star_search/python.exe (found suitable version "3.10.13", minimum required is "3.6") 
+-- Found PythonLibs: C:/Users/Michael/anaconda3/envs/a_star_search/libs/python310.lib
+-- pybind11::lto disabled (problems with undefined symbols for MinGW for now)
+-- pybind11::thin_lto disabled (problems with undefined symbols for MinGW for now)
 -- Configuring done
 -- Generating done
 -- Build files have been written to: E:/Python/a_star_search/c++_astar/cmake-build-debug

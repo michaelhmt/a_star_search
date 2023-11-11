@@ -127,8 +127,6 @@ def a_star_search(maze, start, end):
 
         current_position = heapq.heappop(frontier_list) # type: Node
         visted_list.append(current_position)
-
-        print(f"--- am at pos: {current_position.position}")
         # if we have reached the goal return the path we took
         if current_position == end_node:
             return complie_previous_position(current_position)
@@ -184,13 +182,14 @@ def main():
     path = a_star_search(mazes.HUGE_MAZE, mazes.HUGE_MAZE_START, mazes.HUGE_MAZE_GOAL)
     end_time = time.time()
     print(f"time taken to solve: {end_time - start_time}")
-    if path:
-        plot_path(mazes.HUGE_MAZE, path)
+    return path, mazes.HUGE_MAZE
 
 if __name__ == "__main__":
     profiler = cProfile.Profile()
     profiler.enable()
-    main()
+    path, maze = main()
     profiler.disable()
     stats = pstats.Stats(profiler).dump_stats('profile_output.pstats')
     os.system("snakeviz profile_output.pstats")
+    if path:
+        plot_path(maze, path)
