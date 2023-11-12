@@ -81,7 +81,7 @@ def complie_previous_position(current_pos_node):
     # return the position reversed, so we start at the start position
     return taken_path[::-1]
 
-def find_node_potential_directions(current_node, direction, maze, pure_python=True):
+def find_node_potential_directions(current_node, direction, maze):
     # type: (Node, tuple[int, int], list[list[int]], bool) -> Node | None
     new_node_pos = (current_node.position[0] + direction[0],
                     current_node.position[1] + direction[1])
@@ -94,22 +94,15 @@ def find_node_potential_directions(current_node, direction, maze, pure_python=Tr
     # ensure that we are allowed to travel to this position
     if maze[new_node_pos[0]][new_node_pos[1]] != 0:
         return None
-    if pure_python:
-        return Node(parent=current_node, position=new_node_pos)
-    else:
-        # kwargs will not work with pybind
-        return astar_search_cpp.Node(current_node, new_node_pos)
+
+    return Node(parent=current_node, position=new_node_pos)
 
 
-def a_star_search(maze, start, end, pure_python=True):
+def a_star_search(maze, start, end):
 
     # make start and end nodes
-    if pure_python:
-        start_node = Node(None, start)
-        end_node = Node(None, end)
-    else:
-        start_node = astar_search_cpp.Node(None, start)
-        end_node = astar_search_cpp.Node(None, end)
+    start_node = Node(None, start)
+    end_node = Node(None, end)
 
     # will contain a list of nodes that we are aware of as options for moving but have no yet assessed
     frontier_list = list()
@@ -144,8 +137,7 @@ def a_star_search(maze, start, end, pure_python=True):
         for search_direction in SEARCH_DIRECTIONS:
             direction_node = find_node_potential_directions(current_position,
                                                             search_direction,
-                                                            maze,
-                                                            pure_python=pure_python)
+                                                            maze)
 
             if not direction_node:
                 # for whatever reason we cant move here
@@ -176,7 +168,7 @@ def a_star_search(maze, start, end, pure_python=True):
     return None
 
 
-def main():
+def main(pure_python=True):
     # maze = [[0, 0, 0, 0, 0, 1, 0, 0],
     #         [0, 0, 1, 0, 1, 0, 0, 0],
     #         [0, 0, 1, 1, 1, 0, 1, 0],
@@ -189,7 +181,10 @@ def main():
     # goal = (6, 7)
 
     start_time = time.time()
-    path = a_star_search(mazes.HUGE_MAZE, mazes.HUGE_MAZE_START, mazes.HUGE_MAZE_GOAL, pure_python=False)
+    if pure_python:
+        path = a_star_search(mazes.HUGE_MAZE, mazes.HUGE_MAZE_START, mazes.HUGE_MAZE_GOAL)
+    else:
+        path = astar_search_cpp.a_star_search(mazes.HUGE_MAZE, mazes.HUGE_MAZE_START, mazes.HUGE_MAZE_GOAL)
     end_time = time.time()
     print(f"time taken to solve: {end_time - start_time}")
     return path, mazes.HUGE_MAZE
@@ -197,7 +192,7 @@ def main():
 if __name__ == "__main__":
     profiler = cProfile.Profile()
     profiler.enable()
-    path, maze = main()
+    path, maze = main(pure_python=False)
     profiler.disable()
     stats = pstats.Stats(profiler).dump_stats('profile_output.pstats')
     if path:

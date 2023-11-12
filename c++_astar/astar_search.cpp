@@ -4,6 +4,7 @@
 
 //#include "astar_search.h"
 
+# include "iostream"
 # include "pybind11/pybind11.h"
 # include "pybind11/stl.h"
 # include "algorithm"
@@ -30,9 +31,9 @@ class Node{
         // vars
         std::shared_ptr<Node> parent;
         std::pair<int, int> position;
-        double g_cost;
-        double h_cost;
-        double f_cost;
+        int g_cost;
+        int h_cost;
+        int f_cost;
 
         // default constructor
         Node() : parent(nullptr), position({0, 0}), g_cost(0), h_cost(0), f_cost(0) {}
@@ -141,6 +142,7 @@ std::vector<std::pair<int, int>> a_star_search(const std::vector<std::vector<int
     int number_of_iterations = 0;
     int max_iterations = (pow(floor(maze.size() / 2), 10.0));
 
+    std::cout << "starting a* search" << std::endl;
     while (!frontier_list.empty()){
         number_of_iterations ++;
         if (number_of_iterations > max_iterations){
@@ -154,46 +156,49 @@ std::vector<std::pair<int, int>> a_star_search(const std::vector<std::vector<int
 
         visted_list.push_back(current_pos);
 
+        std::cout << "Current pos is: " << current_pos.position.first << " " << current_pos.position.second << std::endl;
+
         if (current_pos == end_node){
             return compile_path_taken(current_pos);
         }
 
         std::vector<Node> children;
-        for (std::pair<int, int> search_direction : SEARCH_DIRECTIONS){
-            Node* node_for_direction = find_node_potential_directions(current_pos,
-                                                                     search_direction,
-                                                                     maze);
-            if (! node_for_direction){
+        for (std::pair<int, int> search_direction : SEARCH_DIRECTIONS) {
+            Node *node_for_direction = find_node_potential_directions(current_pos,
+                                                                      search_direction,
+                                                                      maze);
+            if (!node_for_direction) {
                 continue;
+            }
+
+            if (std::find(visted_list.begin(), visted_list.end(), *node_for_direction) != visted_list.end()){
+                // if we have visited this node before be don't need to calculate its costs
+                continue;
+            }
+
+            // if this is a node we can consider
+            node_for_direction -> g_cost = current_pos.g_cost + 1;
+
+            int x_h_cost = std::abs(node_for_direction -> position.first - end_node.position.first);
+            int y_h_cost = std::abs(node_for_direction -> position.second - end_node.position.second);
+
+            node_for_direction -> h_cost = x_h_cost + y_h_cost;
+            node_for_direction -> f_cost = node_for_direction -> g_cost + node_for_direction -> h_cost;
+
+            for (const Node& move_candidate : frontier_list){
+                if (*node_for_direction == move_candidate && node_for_direction -> g_cost > move_candidate.g_cost){
+                    continue;
+                }
             }
 
             // de reference the node and place it in our vector
             children.push_back(*node_for_direction);
+        }
 
-            for (Node child : children){
-                if (std::find(visted_list.begin(), visted_list.end(), child) != visted_list.end()){
-                    // if we have visited this node before be don't need to calculate its costs
-                }
+        for (const Node& child : children){
 
-                child.g_cost = current_pos.g_cost + 1;
-
-                int x_h_cost = std::abs(child.position.first - end_node.position.first);
-                int y_h_cost = std::abs(child.position.second - end_node.position.second);
-
-                child.h_cost = x_h_cost + y_h_cost;
-                child.f_cost = child.g_cost + child.h_cost;
-
-                for (const Node& move_candidate : frontier_list){
-                    if (child == move_candidate && child.g_cost > move_candidate.g_cost){
-                        continue;
-                    }
-                }
-
-                make_min_heap(frontier_list);
-                frontier_list.push_back(child);
-                std::push_heap(frontier_list.begin(), frontier_list.end());
-
-            }
+            frontier_list.push_back(child);
+            std::push_heap(frontier_list.begin(), frontier_list.end());
 
         }
 
