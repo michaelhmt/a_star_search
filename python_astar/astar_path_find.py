@@ -7,7 +7,9 @@ import time
 import cProfile
 import pstats
 
+# own modules
 import massive_maze as mazes
+import cpp_astar.astar_search_cpp as astar_search_cpp
 
 SEARCH_DIRECTIONS = [(0, -1),  # Left
                      (0, 1),   # Right
@@ -79,28 +81,35 @@ def complie_previous_position(current_pos_node):
     # return the position reversed, so we start at the start position
     return taken_path[::-1]
 
-def find_node_potential_directions(current_node, direction, maze):
-    # type: (Node, tuple[int, int], list[list[int]]) -> Node | None
+def find_node_potential_directions(current_node, direction, maze, pure_python=True):
+    # type: (Node, tuple[int, int], list[list[int]], bool) -> Node | None
     new_node_pos = (current_node.position[0] + direction[0],
                     current_node.position[1] + direction[1])
 
     is_not_in_maze_x = new_node_pos[0] > (len(maze) - 1) or new_node_pos[0] < 0
     if is_not_in_maze_x:return None
     is_not_in_maze_y = new_node_pos[1] > (len(maze[len(maze)-1]) -1) or new_node_pos[1] < 0
-    #print(f"{} {}")
     if is_not_in_maze_y:return None
 
     # ensure that we are allowed to travel to this position
     if maze[new_node_pos[0]][new_node_pos[1]] != 0:
         return None
-    return Node(parent=current_node, position=new_node_pos)
+    if pure_python:
+        return Node(parent=current_node, position=new_node_pos)
+    else:
+        # kwargs will not work with pybind
+        return astar_search_cpp.Node(current_node, new_node_pos)
 
 
-def a_star_search(maze, start, end):
+def a_star_search(maze, start, end, pure_python=True):
 
     # make start and end nodes
-    start_node = Node(None, start)
-    end_node = Node(None, end)
+    if pure_python:
+        start_node = Node(None, start)
+        end_node = Node(None, end)
+    else:
+        start_node = astar_search_cpp.Node(None, start)
+        end_node = astar_search_cpp.Node(None, end)
 
     # will contain a list of nodes that we are aware of as options for moving but have no yet assessed
     frontier_list = list()
@@ -135,7 +144,8 @@ def a_star_search(maze, start, end):
         for search_direction in SEARCH_DIRECTIONS:
             direction_node = find_node_potential_directions(current_position,
                                                             search_direction,
-                                                            maze)
+                                                            maze,
+                                                            pure_python=pure_python)
 
             if not direction_node:
                 # for whatever reason we cant move here
@@ -179,7 +189,7 @@ def main():
     # goal = (6, 7)
 
     start_time = time.time()
-    path = a_star_search(mazes.HUGE_MAZE, mazes.HUGE_MAZE_START, mazes.HUGE_MAZE_GOAL)
+    path = a_star_search(mazes.HUGE_MAZE, mazes.HUGE_MAZE_START, mazes.HUGE_MAZE_GOAL, pure_python=False)
     end_time = time.time()
     print(f"time taken to solve: {end_time - start_time}")
     return path, mazes.HUGE_MAZE
@@ -190,6 +200,6 @@ if __name__ == "__main__":
     path, maze = main()
     profiler.disable()
     stats = pstats.Stats(profiler).dump_stats('profile_output.pstats')
-    os.system("snakeviz profile_output.pstats")
     if path:
         plot_path(maze, path)
+    os.system("snakeviz profile_output.pstats")
