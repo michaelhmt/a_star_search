@@ -8,6 +8,8 @@
 # include "pybind11/pybind11.h"
 # include "pybind11/stl.h"
 # include "algorithm"
+#include "cmath"
+# include "unordered_set"
 # include "vector"
 # include "utility"
 # include "unordered_set"
@@ -19,10 +21,14 @@ namespace py = pybind11;
 
 // constants
 std::vector<std::pair<int, int>> SEARCH_DIRECTIONS = {
-        {0, -1},
-        {0, 1},
-        {-1, 0},
-        {1, 0}
+        {0, -1},  // Up
+        {0, 1},   // Down
+        {-1, 0},  // Left
+        {1, 0},   // Right
+        {-1, -1}, // Diagonal: Up-Left
+        {-1, 1},  // Diagonal: Down-Left
+        {1, -1},  // Diagonal: Up-Right
+        {1, 1}    // Diagonal: Down-Right
 };
 
 
@@ -31,9 +37,9 @@ class Node{
         // vars
         std::shared_ptr<Node> parent;
         std::pair<int, int> position;
-        int g_cost;
-        int h_cost;
-        int f_cost;
+        double g_cost;
+        double h_cost;
+        double f_cost;
 
         // default constructor
         Node() : parent(nullptr), position({0, 0}), g_cost(0), h_cost(0), f_cost(0) {}
@@ -54,6 +60,13 @@ class Node{
         bool operator < (const Node& other) const{
             return f_cost < other.f_cost;
         }
+
+        // Define the hash function
+        struct Hash {
+            size_t operator()(const Node& node) const {
+                return std::hash<int>()(node.position.first) ^ std::hash<int>()(node.position.second);
+            }
+        };
 
 };
 
@@ -77,6 +90,7 @@ bool is_in_maze(const std::pair<int, int>& pos, const std::vector<std::vector<in
 
 
 std::vector<std::pair<int, int>> compile_path_taken(const Node & current_pos){
+
     std::vector<std::pair<int, int>> taken_path;
     std::shared_ptr<Node> previous_node = current_pos.parent;
 
@@ -133,10 +147,12 @@ std::vector<std::pair<int, int>> a_star_search(const std::vector<std::vector<int
     end_node.position = end_pos;
 
     std::vector<Node> frontier_list;
-    std::vector<Node> visted_list;
+    std::unordered_set<Node, Node::Hash, std::equal_to<>> frontier_set;
+    std::unordered_set<Node, Node::Hash, std::equal_to<>> visted_list;
 
     make_min_heap(frontier_list);
     frontier_list.push_back(start_node);
+    frontier_set.insert(start_node);
     std::push_heap(frontier_list.begin(), frontier_list.end());
 
     int number_of_iterations = 0;
@@ -153,8 +169,9 @@ std::vector<std::pair<int, int>> a_star_search(const std::vector<std::vector<int
         std::pop_heap(frontier_list.begin(), frontier_list.end());
         Node current_pos = frontier_list.back();
         frontier_list.pop_back(); // remove the node
+        frontier_set.erase(current_pos);
 
-        visted_list.push_back(current_pos);
+        visted_list.insert(current_pos);
 
         std::cout << "Current pos is: " << current_pos.position.first << " " << current_pos.position.second << std::endl;
 
@@ -167,41 +184,76 @@ std::vector<std::pair<int, int>> a_star_search(const std::vector<std::vector<int
             Node *node_for_direction = find_node_potential_directions(current_pos,
                                                                       search_direction,
                                                                       maze);
+            bool is_diagonal_move = search_direction.first != 0 && search_direction.second != 0;
+
             if (!node_for_direction) {
                 continue;
             }
 
-            if (std::find(visted_list.begin(), visted_list.end(), *node_for_direction) != visted_list.end()){
-                // if we have visited this node before be don't need to calculate its costs
+            Node valid_node = *node_for_direction;
+
+            if (visted_list.find(valid_node) != visted_list.end()) {
+                // if we have visited this node before we don't need to calculate its costs
                 continue;
             }
 
+
             // if this is a node we can consider
-            node_for_direction -> g_cost = current_pos.g_cost + 1;
-
-            int x_h_cost = std::abs(node_for_direction -> position.first - end_node.position.first);
-            int y_h_cost = std::abs(node_for_direction -> position.second - end_node.position.second);
-
-            node_for_direction -> h_cost = x_h_cost + y_h_cost;
-            node_for_direction -> f_cost = node_for_direction -> g_cost + node_for_direction -> h_cost;
-
-            for (const Node& move_candidate : frontier_list){
-                if (*node_for_direction == move_candidate && node_for_direction -> g_cost > move_candidate.g_cost){
-                    continue;
-                }
+            if (is_diagonal_move) {
+                continue;
+                valid_node.g_cost = current_pos.g_cost + std::sqrt(2); // Diagonal cost
+            } else {
+                valid_node.g_cost = current_pos.g_cost + 1; // Straight cost
             }
 
+
+            double x_h_cost = std::abs(valid_node.position.first - end_node.position.first);
+            double y_h_cost = std::abs(valid_node.position.second - end_node.position.second);
+
+            // Manhattan distance can only solve in cardinal directions (up, down, left, right)
+            //valid_node.h_cost = x_h_cost + y_h_cost;
+
+            //Chebyshev distance allows for diagonal movement
+            //valid_node.h_cost = std::max(x_h_cost, y_h_cost);
+
+            valid_node.f_cost = valid_node.g_cost + valid_node.h_cost;
+
+            bool skip = false;
+            for (const Node& move_candidate : frontier_list){
+                if (valid_node == move_candidate && valid_node.g_cost > move_candidate.g_cost){
+                    skip = true;
+                }
+            }
+            if (skip){
+                continue;
+            }
+
+
             // de reference the node and place it in our vector
-            children.push_back(*node_for_direction);
+            children.push_back(valid_node);
         }
 
-        for (const Node& child : children){
+        for (const Node& child : children) {
+            auto it = std::find_if(frontier_list.begin(), frontier_list.end(),
+                                   [&child](const Node &node) { return child == node; });
 
-            frontier_list.push_back(child);
-            std::push_heap(frontier_list.begin(), frontier_list.end());
-
+            if (it != frontier_list.end()) {
+                // Node is already in the frontier, check if the new path is better
+                if (child.g_cost < it->g_cost) {
+                    // Update the node in the frontier
+                    *it = child;
+                    std::make_heap(frontier_list.begin(), frontier_list.end(), [](const Node &a, const Node &b) {
+                        return a.f_cost > b.f_cost; // Maintains the min-heap property
+                    });
+                }
+            } else {
+                // Node is new to the frontier
+                frontier_list.push_back(child);
+                std::push_heap(frontier_list.begin(), frontier_list.end(), [](const Node &a, const Node &b) {
+                    return a.f_cost > b.f_cost; // Maintains the min-heap property
+                });
+            }
         }
-
     }
 
     return {};

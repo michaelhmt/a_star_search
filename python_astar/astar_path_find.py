@@ -190,11 +190,11 @@ def main(pure_python=True):
     return path, mazes.HUGE_MAZE
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
-    path, maze = main(pure_python=False)
-    profiler.disable()
-    stats = pstats.Stats(profiler).dump_stats('profile_output.pstats')
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+    path, maze = main(pure_python=True)
+    # profiler.disable()
+    # stats = pstats.Stats(profiler).dump_stats('profile_output.pstats')
     if path:
         plot_path(maze, path)
-    os.system("snakeviz profile_output.pstats")
+    #os.system("snakeviz profile_output.pstats")
